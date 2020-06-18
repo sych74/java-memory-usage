@@ -43,7 +43,7 @@ function toMB {
 echo "***************************************************"
 host=$(hostname)
 echo $host
-os=$(cat /etc/os-release)
+os=$(cat /etc/*-release)
 echo $os
 mem=$(free -m)
 #checking output format as different versions of "free" may provide different output 
@@ -78,8 +78,12 @@ for pid in $(pgrep -l java | awk '{print $1}'); do
 	echo "-------------- $pid --------------"
 	echo "$jattach $pid jcmd VM.version"
 	java=$($jattach $pid jcmd VM.version | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
+	if [ $? -ne 0 ]; then
+		java=$(java -version 2>&1)	
+	fi
+	echo $java
 
-	if [[ "$java" == *"JDK 7."* ]]; then
+	if [[ "$java" == *"JDK 7."* || "$java" == *"1.7."* ]]; then
     	echo "ERROR: Java 7 is not supported"
     else
         echo "$jattach $pid jcmd VM.flags"
@@ -138,13 +142,13 @@ for pid in $(pgrep -l java | awk '{print $1}'); do
 	            gc=$(echo $resp | cut -d'|' -f10)
 	            nativemem=$(echo $resp | cut -d'|' -f11)
         	fi
+	        echo "$jattach $pid jcmd ManagementAgent.stop"
+	        $jattach $pid jcmd ManagementAgent.stop
             echo "Done"
         else
             opts="$resp"
             echo "ERROR: can't enable JMX for pid=$pid"
         fi
-        echo "$jattach $pid jcmd ManagementAgent.stop"
-        $jattach $pid jcmd ManagementAgent.stop
 	fi
     
 	curl -fsSL -d "callback=response&action=insert&host=$host&os=$os&pid=$pid&mtotal=$mtotal&mused=$mused&mfree=$mfree&mshared=$mshared&mbuff=$mbuff&mavail=$mavail&swtotal=$swtotal&swused=$swused&swfree=$swfree&swshared=$swshared&swbuff=$swbuff&swavail=$swavail&java=$java&opts=$opts&gc=$gc&xmx=$xmx&committed=$committed&used=$used&xms=$xms&nhmax=$nhmax&nhcommitted=$nhcommitted&nhused=$nhused&nhinit=$nhinit&nativemem=$nativemem&flags=$flags&initheap=$initheap&maxheap=$maxheap&minheapdelta=$minheapdelta&maxnew=$maxnew&new=$new&old=$old&docker=$docker&dckrused=$dckrused&dckrlimit=$dckrlimit" -X POST "https://script.google.com/macros/s/AKfycbzs2J6KLEdAzxvi3vSnSipVG1EYGP5qaUvoRa_MAtv7LXPpgGU/exec"
