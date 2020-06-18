@@ -1,45 +1,4 @@
 #!/bash/sh 
-
-function getCtInfo {
-  local pid="$1"
-
-  if [[ -z "$pid" ]]; then
-    echo "Missing host PID argument."
-    exit 1
-  fi
-
-  if [ "$pid" -eq "1" ]; then
-    echo "Unable to resolve host PID to a container name."
-    exit 2
-  fi
-
-  # ps returns values potentially padded with spaces, so we pass them as they are without quoting.
-  local parentPid="$(ps -o ppid= -p $pid)"
-  local ct="$(ps -o args= -f -p $parentPid | grep containerd-shim)"
-  m="moby/"
-  if [[ -n "$ct" ]]; then
-    local ctid=$(echo ${ct#*$m} | cut -d' ' -f1)
-    if [ "$2" == "id" ]; then
-    	echo $ctid
-    else
-    	docker inspect $ctid | grep IPAddress | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b"
-    fi
-  else
-    getCtInfo "$parentPid" $2
-  fi
-}
-
-function toMB {
-	local mb=1048576
-	local value=$1
-
-	if echo "$value" | grep -qE '^[0-9]+$' ; then
-	    echo $(($value/$mb))
-	else
-	    echo ""
-	fi	
-}
-
 echo "***************************************************"
 host=$(hostname)
 echo $host
@@ -155,3 +114,43 @@ for pid in $(pgrep -l java | awk '{print $1}'); do
 
 done
 rm -rf $jar $jattach /tmp/lib
+
+function getCtInfo {
+  local pid="$1"
+
+  if [[ -z "$pid" ]]; then
+    echo "Missing host PID argument."
+    exit 1
+  fi
+
+  if [ "$pid" -eq "1" ]; then
+    echo "Unable to resolve host PID to a container name."
+    exit 2
+  fi
+
+  # ps returns values potentially padded with spaces, so we pass them as they are without quoting.
+  local parentPid="$(ps -o ppid= -p $pid)"
+  local ct="$(ps -o args= -f -p $parentPid | grep containerd-shim)"
+  m="moby/"
+  if [[ -n "$ct" ]]; then
+    local ctid=$(echo ${ct#*$m} | cut -d' ' -f1)
+    if [ "$2" == "id" ]; then
+    	echo $ctid
+    else
+    	docker inspect $ctid | grep IPAddress | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b"
+    fi
+  else
+    getCtInfo "$parentPid" $2
+  fi
+}
+
+function toMB {
+	local mb=1048576
+	local value=$1
+
+	if echo "$value" | grep -qE '^[0-9]+$' ; then
+	    echo $(($value/$mb))
+	else
+	    echo ""
+	fi	
+}
