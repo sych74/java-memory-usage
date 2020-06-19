@@ -37,9 +37,24 @@ function run {
 		echo "-------------- $pid --------------"
 		echo "$jattach $pid jcmd VM.version"
 		java=$($jattach $pid jcmd VM.version | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
-		if [ $? -ne 0 ]; then
-			java=$(java -version 2>&1)	
+		result=$?
+		if [ $result -ne 0 ]; then
+			java="Java on Host: $(java -version 2>&1)"
+			result=$?
 		fi
+
+		if [ $(which docker) ]; then
+			echo "Collecting info about docker container limits..."
+			ctid=$(getCtInfo $pid id)
+			echo "ctid=$ctid"
+			st=$(docker stats $ctid --no-stream --format "{{.MemUsage}}")
+			dckrused=$(echo $st | cut -d'/' -f1 | tr -s " " | xargs)
+			dckrlimit=$(echo $st | cut -d'/' -f2 | tr -s " " | xargs)
+			if [ $result -ne 0 ]; then
+				java=$(docker exec $ctid java -version 2>&1) 
+			fi
+		fi
+
 		echo $java
 
 		if [[ "$java" == *"JDK 7."* || "$java" == *"1.7."* ]]; then
@@ -67,6 +82,7 @@ function run {
 			resp=$($jattach $pid jcmd "$start" 2>&1)
 			result=$?
 			echo $resp
+
 			if [ $result -eq 0 ]; then
 				echo "java -jar $jar 2>&1"
 				resp=$(java -jar $jar 2>&1)
@@ -74,12 +90,6 @@ function run {
 				echo $resp
 
 				if [ $(which docker) ]; then
-					echo "Collecting info about docker container limits..."
-					ctid=$(getCtInfo $pid id)
-					st=$(docker stats $ctid --no-stream --format "{{.MemUsage}}")
-					dckrused=$(echo $st | cut -d'/' -f1 | tr -s " " | xargs)
-					dckrlimit=$(echo $st | cut -d'/' -f2 | tr -s " " | xargs)
-
 					if [[ "$resp" == *"Failed to retrieve RMIServer stub"* ]]; then
 						ip=$(getCtInfo $pid)	
 						echo "java -jar $jar -h=$ip"
@@ -89,7 +99,6 @@ function run {
 					fi
 					#If previous attempts failed then execute java -jar app.jar inside docker cotainer 
 					if [ $result -ne 0 ]; then
-						ctid=$(getCtInfo $pid id)
 						docker cp $jar $ctid:$jar
 						resp=$(docker exec $ctid java -jar $jar) 
 						result=$?
@@ -115,6 +124,24 @@ function run {
 				$jattach $pid jcmd ManagementAgent.stop
 				echo "Done"
 			else
+				if [ $(which docker) ]; then
+					if [[ "$resp" == *"Failed to retrieve RMIServer stub"* ]]; then
+						ip=$(getCtInfo $pid)	
+						echo "java -jar $jar -h=$ip"
+						resp=$(java -jar $jar -h=$ip)
+						result=$?
+						echo $resp
+					fi
+					#If previous attempts failed then execute java -jar app.jar inside docker cotainer 
+					if [ $result -ne 0 ]; then
+						ctid=$(getCtInfo $pid id)
+						docker cp $jar $ctid:$jar
+						resp=$(docker exec $ctid java -jar $jar) 
+						result=$?
+						docker exec $ctid rm -rf $jar 
+						echo $resp
+					fi
+				fi
 				opts="$resp"
 				echo "ERROR: can't enable JMX for pid=$pid"
 			fi
