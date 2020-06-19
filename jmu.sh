@@ -96,7 +96,7 @@ function run {
 		                docker exec $ctid rm -rf $jar 
 		                echo $resp
 		            fi
-	            fi
+		        fi
 
 	            opts=$(echo $resp | cut -d'|' -f1)
 	            if [ $result -eq 0 ]; then
