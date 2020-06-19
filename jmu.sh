@@ -30,8 +30,6 @@ function run {
 	curl -Lo /tmp/jattach https://github.com/apangin/jattach/releases/download/v1.5/jattach
 	chmod +x /tmp/jattach
 	jattach="/tmp/jattach"
-	mkdir -p /tmp/lib
-	curl -Lo /tmp/lib/tools.jar https://github.com/siruslan/java-memory-usage/raw/master/tools.jar
 	curl -Lo /tmp/app.jar https://github.com/siruslan/java-memory-usage/raw/master/MemoryUsageCollector.jar
 	jar=/tmp/app.jar
 
@@ -76,6 +74,7 @@ function run {
 	            echo $resp
 
 	            if [ $(which docker) ]; then
+	                echo "Collecting info about docker container limits..."
 	                ctid=$(getCtInfo $pid id)
 	                st=$(docker stats $ctid --no-stream --format "{{.MemUsage}}")
 	                dckrused=$(echo $st | cut -d'/' -f1 | tr -s " " | xargs)
@@ -85,10 +84,19 @@ function run {
 		                ip=$(getCtInfo $pid)	
 		                echo "java -jar $jar -h=$ip"
 		                resp=$(java -jar $jar -h=$ip)
-	            		result=$?
+		                result=$?
 		                echo $resp
 		            fi
-	        	fi
+		            #If previous attempts failed then execute java -jar app.jar inside docker cotainer 
+		            if [ $result -ne 0 ]; then
+		                ctid=$(getCtInfo $pid id)
+		                docker cp $jar $ctid:$jar
+		                resp=$(docker exec $ctid java -jar $jar) 
+		                result=$?
+		                docker exec $ctid rm -rf $jar 
+		                echo $resp
+		            fi
+	            fi
 
 	            opts=$(echo $resp | cut -d'|' -f1)
 	            if [ $result -eq 0 ]; then
@@ -113,9 +121,8 @@ function run {
 		fi
 	    
 		curl -fsSL -d "callback=response&action=insert&host=$host&os=$os&pid=$pid&mtotal=$mtotal&mused=$mused&mfree=$mfree&mshared=$mshared&mbuff=$mbuff&mavail=$mavail&swtotal=$swtotal&swused=$swused&swfree=$swfree&swshared=$swshared&swbuff=$swbuff&swavail=$swavail&java=$java&opts=$opts&gc=$gc&xmx=$xmx&committed=$committed&used=$used&xms=$xms&nhmax=$nhmax&nhcommitted=$nhcommitted&nhused=$nhused&nhinit=$nhinit&nativemem=$nativemem&flags=$flags&initheap=$initheap&maxheap=$maxheap&minheapdelta=$minheapdelta&maxnew=$maxnew&new=$new&old=$old&docker=$docker&dckrused=$dckrused&dckrlimit=$dckrlimit" -X POST "https://script.google.com/macros/s/AKfycbzs2J6KLEdAzxvi3vSnSipVG1EYGP5qaUvoRa_MAtv7LXPpgGU/exec"
-
 	done
-	rm -rf $jar $jattach /tmp/lib
+	rm -rf $jar $jattach
 }
 
 function getCtInfo {
@@ -131,7 +138,7 @@ function getCtInfo {
     exit 2
   fi
 
-  # ps returns values potentially padded with spaces, so we pass them as they are without quoting.
+  #ps returns values potentially padded with spaces, so we pass them as they are without quoting.
   local parentPid="$(ps -o ppid= -p $pid)"
   local ct="$(ps -o args= -f -p $parentPid | grep containerd-shim)"
   m="moby/"
@@ -159,4 +166,3 @@ function toMB {
 }
 
 run
-
