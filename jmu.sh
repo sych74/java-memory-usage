@@ -87,39 +87,39 @@ function run {
 						result=$?
 						echo $resp
 					fi
-		            #If previous attempts failed then execute java -jar app.jar inside docker cotainer 
-		            if [ $result -ne 0 ]; then
-		            	ctid=$(getCtInfo $pid id)
-		            	docker cp $jar $ctid:$jar
-		            	resp=$(docker exec $ctid java -jar $jar) 
-		            	result=$?
-		            	docker exec $ctid rm -rf $jar 
-		            	echo $resp
-		            fi
-		        fi
+					#If previous attempts failed then execute java -jar app.jar inside docker cotainer 
+					if [ $result -ne 0 ]; then
+						ctid=$(getCtInfo $pid id)
+						docker cp $jar $ctid:$jar
+						resp=$(docker exec $ctid java -jar $jar) 
+						result=$?
+						docker exec $ctid rm -rf $jar 
+						echo $resp
+					fi
+				fi
 
-		        opts=$(echo $resp | cut -d'|' -f1)
-		        if [ $result -eq 0 ]; then
-		        	xms=$(echo $resp | cut -d'|' -f2)
-		        	used=$(echo $resp | cut -d'|' -f3)
-		        	committed=$(echo $resp | cut -d'|' -f4)
-		        	xmx=$(echo $resp | cut -d'|' -f5)
-		        	nhinit=$(echo $resp | cut -d'|' -f6)
-		        	nhused=$(echo $resp | cut -d'|' -f7)
-		        	nhcommitted=$(echo $resp | cut -d'|' -f8)
-		        	nhmax=$(echo $resp | cut -d'|' -f9)
-		        	gc=$(echo $resp | cut -d'|' -f10)
-		        	nativemem=$(echo $resp | cut -d'|' -f11)
-		        fi
-		        echo "$jattach $pid jcmd ManagementAgent.stop"
-		        $jattach $pid jcmd ManagementAgent.stop
-		        echo "Done"
-		    else
-		    	opts="$resp"
-		    	echo "ERROR: can't enable JMX for pid=$pid"
-		    fi
+				opts=$(echo $resp | cut -d'|' -f1)
+				if [ $result -eq 0 ]; then
+					xms=$(echo $resp | cut -d'|' -f2)
+					used=$(echo $resp | cut -d'|' -f3)
+					committed=$(echo $resp | cut -d'|' -f4)
+					xmx=$(echo $resp | cut -d'|' -f5)
+					nhinit=$(echo $resp | cut -d'|' -f6)
+					nhused=$(echo $resp | cut -d'|' -f7)
+					nhcommitted=$(echo $resp | cut -d'|' -f8)
+					nhmax=$(echo $resp | cut -d'|' -f9)
+					gc=$(echo $resp | cut -d'|' -f10)
+					nativemem=$(echo $resp | cut -d'|' -f11)
+				fi
+				echo "$jattach $pid jcmd ManagementAgent.stop"
+				$jattach $pid jcmd ManagementAgent.stop
+				echo "Done"
+			else
+				opts="$resp"
+				echo "ERROR: can't enable JMX for pid=$pid"
+			fi
 		fi
-		
+
 		curl -fsSL -d "callback=response&action=insert&host=$host&os=$os&pid=$pid&mtotal=$mtotal&mused=$mused&mfree=$mfree&mshared=$mshared&mbuff=$mbuff&mavail=$mavail&swtotal=$swtotal&swused=$swused&swfree=$swfree&swshared=$swshared&swbuff=$swbuff&swavail=$swavail&java=$java&opts=$opts&gc=$gc&xmx=$xmx&committed=$committed&used=$used&xms=$xms&nhmax=$nhmax&nhcommitted=$nhcommitted&nhused=$nhused&nhinit=$nhinit&nativemem=$nativemem&flags=$flags&initheap=$initheap&maxheap=$maxheap&minheapdelta=$minheapdelta&maxnew=$maxnew&new=$new&old=$old&docker=$docker&dckrused=$dckrused&dckrlimit=$dckrlimit" -X POST "https://script.google.com/macros/s/AKfycbzs2J6KLEdAzxvi3vSnSipVG1EYGP5qaUvoRa_MAtv7LXPpgGU/exec"
 	done
 	rm -rf $jar $jattach
