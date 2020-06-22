@@ -77,30 +77,40 @@ function run {
 			s=":OldSize="
 			old=$(toMB $(echo ${flags#*$s} | cut -d' ' -f1))
 
-			start="ManagementAgent.start jmxremote.port=$port jmxremote.rmi.port=$port jmxremote.ssl=false jmxremote.authenticate=false"
-			echo "$jattach $pid jcmd \"$start\""
-			resp=$($jattach $pid jcmd "$start" 2>&1)
-			result=$?
-			echo $resp
+
+			currentPort=$($jattach 590 jcmd ManagementAgent.status | grep jmxremote.port | cut -d'=' -f2 | tr -s " " | xargs)
+			if [ -z "$currentPort" ]; then
+				start="ManagementAgent.start jmxremote.port=$port jmxremote.rmi.port=$port jmxremote.ssl=false jmxremote.authenticate=false"
+				echo "$jattach $pid jcmd \"$start\""
+				resp=$($jattach $pid jcmd "$start" 2>&1)
+				result=$?
+				echo $resp
+				p=$port
+			else 
+				resul=0
+				echo "Connecting to running JMX at port $currentPort"
+				p=$currentPort
+			fi
+			
 
 			if [ $result -eq 0 ]; then
-				echo "java -jar $jar 2>&1"
-				resp=$(java -jar $jar 2>&1)
+				echo "java -jar $jar -p=$p 2>&1"
+				resp=$(java -jar $jar -p=$p 2>&1)
 				result=$?
 				echo $resp
 
 				if [ $(which docker) ]; then
 					if [[ "$resp" == *"Failed to retrieve RMIServer stub"* ]]; then
 						ip=$(getCtInfo $pid)	
-						echo "java -jar $jar -h=$ip"
-						resp=$(java -jar $jar -h=$ip)
+						echo "java -jar $jar -h=$ip -p=$p"
+						resp=$(java -jar $jar -h=$ip -p=$p)
 						result=$?
 						echo $resp
 					fi
 					#If previous attempts failed then execute java -jar app.jar inside docker cotainer 
 					if [ $result -ne 0 ]; then
 						docker cp $jar $ctid:$jar
-						resp=$(docker exec $ctid java -jar $jar) 
+						resp=$(docker exec $ctid java -jar $jar -p=$p) 
 						result=$?
 						docker exec $ctid rm -rf $jar 
 						echo $resp
@@ -120,8 +130,10 @@ function run {
 					gc=$(echo $resp | cut -d'|' -f10)
 					nativemem=$(echo $resp | cut -d'|' -f11)
 				fi
-				echo "$jattach $pid jcmd ManagementAgent.stop"
-				$jattach $pid jcmd ManagementAgent.stop
+				if [ -z "$currentPort" ]; then
+					echo "$jattach $pid jcmd ManagementAgent.stop"
+					$jattach $pid jcmd ManagementAgent.stop
+				fi
 				echo "Done"
 			else
 				if [ $(which docker) ]; then
