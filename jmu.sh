@@ -78,7 +78,7 @@ function run {
 			old=$(toMB $(echo ${flags#*$s} | cut -d' ' -f1))
 
 
-			currentPort=$($jattach 590 jcmd ManagementAgent.status | grep jmxremote.port | cut -d'=' -f2 | tr -s " " | xargs)
+			currentPort=$($jattach $pid jcmd ManagementAgent.status | grep jmxremote.port | cut -d'=' -f2 | tr -s " " | xargs)
 			if [ -z "$currentPort" ]; then
 				start="ManagementAgent.start jmxremote.port=$port jmxremote.rmi.port=$port jmxremote.ssl=false jmxremote.authenticate=false"
 				echo "$jattach $pid jcmd \"$start\""
