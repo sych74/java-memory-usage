@@ -80,6 +80,11 @@ function run {
 
 			currentPort=$($jattach $pid jcmd ManagementAgent.status | grep jmxremote.port | cut -d'=' -f2 | tr -s " " | xargs)
 			if [ -z "$currentPort" ]; then
+				s="jmxremote.port="
+				proc=$(ps ax | grep $pid | grep $s)
+				currentPort=$(echo ${proc#*$s} | cut -d'=' -f1)
+			fi			
+			if [ -z "$currentPort" ]; then
 				start="ManagementAgent.start jmxremote.port=$port jmxremote.rmi.port=$port jmxremote.ssl=false jmxremote.authenticate=false"
 				echo "$jattach $pid jcmd \"$start\""
 				resp=$($jattach $pid jcmd "$start" 2>&1)
