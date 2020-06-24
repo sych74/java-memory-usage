@@ -38,6 +38,10 @@ function run {
 	swbuff=$(echo $mem | cut -d' ' -f19)
 	swavail=$(echo $mem | cut -d' ' -f20)
 	docker=$(docker -v)
+    if [ $(which docker) ]; then
+		docker=$(echo -e "$docker\n$(kubeadm version | tr -d '&')")
+    fi
+    echo $docker
 	port=10239
 	curl -Lo /tmp/jattach https://github.com/apangin/jattach/releases/download/v1.5/jattach
 	chmod +x /tmp/jattach
