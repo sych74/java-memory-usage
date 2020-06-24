@@ -1,10 +1,12 @@
 #!/bash/sh 
 
 function run {
+
 	testid=$1
 	if [ -z "$testid" ]; then
 		testid="Test $(date)"
 	fi
+
 	echo "***************************************************"
 	host=$(hostname)
 	echo $host
@@ -165,7 +167,7 @@ function run {
 						docker cp $jar $ctid:$jar
 						resp=$(docker exec $ctid java -jar $jar) 
 						result=$?
-						docker exec $ctid rm -rf $jar 
+						docker exec -u 0 $ctid rm -rf $jar 
 						echo $resp
 					fi
 				fi
