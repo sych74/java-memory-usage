@@ -117,7 +117,7 @@ function run {
 						docker cp $jar $ctid:$jar
 						resp=$(docker exec $ctid java -jar $jar -p=$p) 
 						result=$?
-						docker exec $ctid rm -rf $jar 
+						docker exec -u 0 $ctid rm -rf $jar 
 						echo $resp
 					fi
 				fi
