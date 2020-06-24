@@ -2,7 +2,7 @@
 
 function run {
 
-	testid=$1
+	[ ! -z "$1" ] && testid=$1 || testid=$TESTID
 	if [ -z "$testid" ]; then
 		testid="Test $(date)"
 	fi
