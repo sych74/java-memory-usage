@@ -6,6 +6,12 @@ function run {
 	echo $host
 	os=$(cat /etc/*-release)
 	echo $os
+	node=""
+	meta="/etc/jelastic/metainf.conf"
+	if [ -а $meta ]; then
+		node=$(cat $meta | grep TYPE)
+		echo $node
+	fi 
 	mem=$(free -m)
 	#checking output format as different versions of "free" may provide different output 
 	[[ "$mem" == *"-/+"* ]] && {
@@ -164,7 +170,7 @@ function run {
 			fi
 		fi
 
-		curl -fsSL -d "callback=response&action=insert&host=$host&os=$os&pid=$pid&mtotal=$mtotal&mused=$mused&mfree=$mfree&mshared=$mshared&mbuff=$mbuff&mavail=$mavail&swtotal=$swtotal&swused=$swused&swfree=$swfree&swshared=$swshared&swbuff=$swbuff&swavail=$swavail&java=$java&opts=$opts&gc=$gc&xmx=$xmx&committed=$committed&used=$used&xms=$xms&nhmax=$nhmax&nhcommitted=$nhcommitted&nhused=$nhused&nhinit=$nhinit&nativemem=$nativemem&flags=$flags&initheap=$initheap&maxheap=$maxheap&minheapdelta=$minheapdelta&maxnew=$maxnew&new=$new&old=$old&docker=$docker&dckrused=$dckrused&dckrlimit=$dckrlimit" -X POST "https://script.google.com/macros/s/AKfycbzs2J6KLEdAzxvi3vSnSipVG1EYGP5qaUvoRa_MAtv7LXPpgGU/exec"
+		curl -fsSL -d "callback=response&action=insert&host=$host&os=$os&node=$node&pid=$pid&mtotal=$mtotal&mused=$mused&mfree=$mfree&mshared=$mshared&mbuff=$mbuff&mavail=$mavail&swtotal=$swtotal&swused=$swused&swfree=$swfree&swshared=$swshared&swbuff=$swbuff&swavail=$swavail&java=$java&opts=$opts&gc=$gc&xmx=$xmx&committed=$committed&used=$used&xms=$xms&nhmax=$nhmax&nhcommitted=$nhcommitted&nhused=$nhused&nhinit=$nhinit&nativemem=$nativemem&flags=$flags&initheap=$initheap&maxheap=$maxheap&minheapdelta=$minheapdelta&maxnew=$maxnew&new=$new&old=$old&docker=$docker&dckrused=$dckrused&dckrlimit=$dckrlimit" -X POST "https://script.google.com/macros/s/AKfycbzs2J6KLEdAzxvi3vSnSipVG1EYGP5qaUvoRa_MAtv7LXPpgGU/exec"
 	done
 	rm -rf $jar $jattach
 }
