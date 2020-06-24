@@ -1,12 +1,10 @@
 #!/bash/sh 
 
 function run {
-
 	testid=$1
 	if [ -z "$testid" ]; then
 		testid="Test $(date)"
 	fi
-
 	echo "***************************************************"
 	host=$(hostname)
 	echo $host
@@ -14,7 +12,7 @@ function run {
 	echo $os
 	node=""
 	meta="/etc/jelastic/metainf.conf"
-	if [ -а $meta ]; then
+	if [ -f $meta ]; then
 		node=$(cat $meta | grep TYPE)
 		echo $node
 	fi 
