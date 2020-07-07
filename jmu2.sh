@@ -23,11 +23,7 @@ function run {
 		nodeType=$(cat $meta | grep TYPE)
 		echo $nodeType
 	fi 
-	mem=$(free -m)
-	#checking output format as different versions of "free" may provide different output 
-	[[ "$mem" == *"-/+"* ]] && {
-		mem=$(free -mo)
-	}
+	mem=$(free -m | grep -v +)
 	echo $mem
 
 	osMemTotal=$(echo $mem | cut -d' ' -f8)
@@ -39,19 +35,16 @@ function run {
 	swapTotal=$(echo $mem | cut -d' ' -f15)
 	swapUsed=$(echo $mem | cut -d' ' -f16)
 	swapFree=$(echo $mem | cut -d' ' -f17)
-	swapShared=$(echo $mem | cut -d' ' -f18)
-	swapBuffCache=$(echo $mem | cut -d' ' -f19)
-	swapAvail=$(echo $mem | cut -d' ' -f20)
 	dockerVersion=$(docker -v)
     if [ $(which kubeadm) ]; then
 		$dockerVersion=$(echo -e "$dockerVersion\n$(kubeadm version | tr -d '&')")
     fi
     echo $dockerVersion
 	port=10239
-	curl -Lo /tmp/jattach https://github.com/apangin/jattach/releases/download/v1.5/jattach
+	curl -sLo /tmp/jattach https://github.com/apangin/jattach/releases/download/v1.5/jattach
 	chmod +x /tmp/jattach
 	jattach="/tmp/jattach"
-	curl -Lo /tmp/app.jar https://github.com/siruslan/java-memory-usage/raw/master/MemoryUsageCollector.jar
+	curl -sLo /tmp/app.jar https://github.com/siruslan/java-memory-usage/raw/master/MemoryUsageCollector.jar
 	jar=/tmp/app.jar
 
 	for pid in $(pgrep -l java | awk '{print $1}'); do
@@ -185,7 +178,7 @@ function run {
 			fi
 		fi
 
-		curl -fsSL -d "user=$user&testId=$testId&hostId=$hostId&os=$os&nodeType=$nodeType&pid=$pid&osMemTotal=$osMemTotal&osMemUsed=$osMemUsed&osMemFree=$osMemFree&osMemShared=$osMemShared&osMemBuffCache=$osMemBuffCache&osMemAvail=$osMemAvail&swapTotal=$swapTotal&swapUsed=$swapUsed&swapFree=$swapFree&swapShared=$swapShared&swapBuffCache=$swapBuffCache&swapAvail=$swapAvail&javaVersion=$javaVersion&options=$options&gcType=$gcType&xmx=$xmx&heapCommitted=$heapCommitted&heapUsed=$heapUsed&xms=$xms&nonHeapMax=$nonHeapMax&nonHeapCommitted=$nonHeapCommitted&nonHeapUsed=$nonHeapUsed&nonHeapInit=$nonHeapInit&nativeMemory=$nativeMemory&jvmFlags=$jvmFlags&initHeap=$initHeap&maxHeap=$maxHeap&minHeapDelta=$minHeapDelta&maxNew=$maxNew&newSize=$newSize&oldSize=$oldSize&dockerVersion=$dockerVersion&dockerUsed=$dockerUsed&dockerLimit=$dockerLimit" -X POST "https://cs.demo.jelastic.com/1.0/development/scripting/rest/eval?script=stats&appid=cc492725f550fcd637ab8a7c1f9810c9"
+		curl -fsSL -d "user=$user&testId=$testId&hostId=$hostId&os=$os&nodeType=$nodeType&pid=$pid&osMemTotal=$osMemTotal&osMemUsed=$osMemUsed&osMemFree=$osMemFree&osMemShared=$osMemShared&osMemBuffCache=$osMemBuffCache&osMemAvail=$osMemAvail&swapTotal=$swapTotal&swapUsed=$swapUsed&swapFree=$swapFree&javaVersion=$javaVersion&options=$options&gcType=$gcType&xmx=$xmx&heapCommitted=$heapCommitted&heapUsed=$heapUsed&xms=$xms&nonHeapMax=$nonHeapMax&nonHeapCommitted=$nonHeapCommitted&nonHeapUsed=$nonHeapUsed&nonHeapInit=$nonHeapInit&nativeMemory=$nativeMemory&jvmFlags=$jvmFlags&initHeap=$initHeap&maxHeap=$maxHeap&minHeapDelta=$minHeapDelta&maxNew=$maxNew&newSize=$newSize&oldSize=$oldSize&dockerVersion=$dockerVersion&dockerUsed=$dockerUsed&dockerLimit=$dockerLimit" -X POST "https://cs.demo.jelastic.com/1.0/development/scripting/rest/eval?script=stats&appid=cc492725f550fcd637ab8a7c1f9810c9"
 		echo ""
 	done
 	rm -rf $jar $jattach
