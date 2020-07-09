@@ -2,60 +2,58 @@
 
 function run {
 
-	testid=${1:-$TESTID}
-	if [ -z "$testid" ]; then
-		testid="Test $(date)"
+	user=${1:-$USER}
+	if [ -z "$user" ]; then
+		user="user$RANDOM"
+	fi
+
+	testId=${2:-$TESTID}
+	if [ -z "$testId" ]; then
+		testId="Test $(date)"
 	fi
 
 	echo "***************************************************"
-	host=$(hostname)
-	echo $host
+	hostId=$(hostname)
+	echo $hostId
 	os=$(cat /etc/*-release)
 	echo $os
-	node=""
+	nodeType=""
 	meta="/etc/jelastic/metainf.conf"
 	if [ -f $meta ]; then
-		node=$(cat $meta | grep TYPE)
-		echo $node
+		nodeType=$(cat $meta | grep TYPE)
+		echo $nodeType
 	fi 
-	mem=$(free -m)
-	#checking output format as different versions of "free" may provide different output 
-	[[ "$mem" == *"-/+"* ]] && {
-		mem=$(free -mo)
-	}
+	mem=$(free -m | grep -v +)
 	echo $mem
 
-	mtotal=$(echo $mem | cut -d' ' -f8)
-	mused=$(echo $mem | cut -d' ' -f9)
-	mfree=$(echo $mem | cut -d' ' -f10)
-	mshared=$(echo $mem | cut -d' ' -f11)
-	mbuff=$(echo $mem | cut -d' ' -f12)
-	mavail=$(echo $mem | cut -d' ' -f13)
-	swtotal=$(echo $mem | cut -d' ' -f15)
-	swused=$(echo $mem | cut -d' ' -f16)
-	swfree=$(echo $mem | cut -d' ' -f17)
-	swshared=$(echo $mem | cut -d' ' -f18)
-	swbuff=$(echo $mem | cut -d' ' -f19)
-	swavail=$(echo $mem | cut -d' ' -f20)
-	docker=$(docker -v)
-    if [ $(which docker) ]; then
-		docker=$(echo -e "$docker\n$(kubeadm version | tr -d '&')")
+	osMemTotal=$(echo $mem | cut -d' ' -f8)
+	osMemUsed=$(echo $mem | cut -d' ' -f9)
+	osMemFree=$(echo $mem | cut -d' ' -f10)
+	osMemShared=$(echo $mem | cut -d' ' -f11)
+	osMemBuffCache=$(echo $mem | cut -d' ' -f12)
+	osMemAvail=$(echo $mem | cut -d' ' -f13)
+	swapTotal=$(echo $mem | cut -d' ' -f15)
+	swapUsed=$(echo $mem | cut -d' ' -f16)
+	swapFree=$(echo $mem | cut -d' ' -f17)
+	dockerVersion=$(docker -v)
+    if [ $(which kubeadm) ]; then
+		$dockerVersion=$(echo -e "$dockerVersion\n$(kubeadm version | tr -d '&')")
     fi
-    echo $docker
+    echo $dockerVersion
 	port=10239
-	curl -Lo /tmp/jattach https://github.com/apangin/jattach/releases/download/v1.5/jattach
+	curl -sLo /tmp/jattach https://github.com/apangin/jattach/releases/download/v1.5/jattach
 	chmod +x /tmp/jattach
 	jattach="/tmp/jattach"
-	curl -Lo /tmp/app.jar https://github.com/siruslan/java-memory-usage/raw/master/MemoryUsageCollector.jar
+	curl -sLo /tmp/app.jar https://github.com/siruslan/java-memory-usage/raw/master/MemoryUsageCollector.jar
 	jar=/tmp/app.jar
 
 	for pid in $(pgrep -l java | awk '{print $1}'); do
 		echo "-------------- $pid --------------"
 		echo "$jattach $pid jcmd VM.version"
-		java=$($jattach $pid jcmd VM.version | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
+		javaVersion=$($jattach $pid jcmd VM.version | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
 		result=$?
 		if [ $result -ne 0 ]; then
-			java="Java on Host: $(java -version 2>&1)"
+			javaVersion="Java on Host: $(java -version 2>&1)"
 			result=$?
 		fi
 
@@ -64,34 +62,34 @@ function run {
 			ctid=$(getCtInfo $pid id)
 			echo "ctid=$ctid"
 			st=$(docker stats $ctid --no-stream --format "{{.MemUsage}}")
-			dckrused=$(echo $st | cut -d'/' -f1 | tr -s " " | xargs)
-			dckrlimit=$(echo $st | cut -d'/' -f2 | tr -s " " | xargs)
+			dockerUsed=$(echo $st | cut -d'/' -f1 | tr -s " " | xargs)
+			dockerLimit=$(echo $st | cut -d'/' -f2 | tr -s " " | xargs)
 			if [ $result -ne 0 ]; then
-				java=$(docker exec $ctid java -version 2>&1) 
+				javaVersion=$(docker exec $ctid java -version 2>&1) 
 			fi
 		fi
 
-		echo $java
+		echo $javaVersion
 
-		if [[ "$java" == *"JDK 7."* || "$java" == *"1.7."* ]]; then
+		if [[ "$javaVersion" == *"JDK 7."* || "$javaVersion" == *"1.7."* ]]; then
 			echo "ERROR: Java 7 is not supported"
 		else
 			echo "$jattach $pid jcmd VM.flags"
-			flags=$($jattach $pid jcmd VM.flags | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
-			echo $flags
+			jvmFlags=$($jattach $pid jcmd VM.flags | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
+			echo $jvmFlags
 
 			s=":InitialHeapSize="
-			initheap=$(toMB $(echo ${flags#*$s} | cut -d' ' -f1))
+			initHeap=$(toMB $(echo ${jvmFlags#*$s} | cut -d' ' -f1))
 			s=":MaxHeapSize="
-			maxheap=$(toMB $(echo ${flags#*$s} | cut -d' ' -f1))
+			maxHeap=$(toMB $(echo ${jvmFlags#*$s} | cut -d' ' -f1))
 			s=":MaxNewSize="
-			maxnew=$(toMB $(echo ${flags#*$s} | cut -d' ' -f1))
+			maxNew=$(toMB $(echo ${jvmFlags#*$s} | cut -d' ' -f1))
 			s=":MinHeapDeltaBytes="
-			minheapdelta=$(toMB $(echo ${flags#*$s} | cut -d' ' -f1))
+			minHeapDelta=$(toMB $(echo ${jvmFlags#*$s} | cut -d' ' -f1))
 			s=":NewSize="
-			new=$(toMB $(echo ${flags#*$s} | cut -d' ' -f1))
+			newSize=$(toMB $(echo ${jvmFlags#*$s} | cut -d' ' -f1))
 			s=":OldSize="
-			old=$(toMB $(echo ${flags#*$s} | cut -d' ' -f1))
+			oldSize=$(toMB $(echo ${jvmFlags#*$s} | cut -d' ' -f1))
 
 
 			currentPort=$($jattach $pid jcmd ManagementAgent.status | grep jmxremote.port | cut -d'=' -f2 | tr -s " " | xargs)
@@ -138,18 +136,18 @@ function run {
 					fi
 				fi
 
-				opts=$(echo $resp | cut -d'|' -f1)
+				options=$(echo $resp | cut -d'|' -f1)
 				if [ $result -eq 0 ]; then
 					xms=$(echo $resp | cut -d'|' -f2)
-					used=$(echo $resp | cut -d'|' -f3)
-					committed=$(echo $resp | cut -d'|' -f4)
+					heapUsed=$(echo $resp | cut -d'|' -f3)
+					heapCommitted=$(echo $resp | cut -d'|' -f4)
 					xmx=$(echo $resp | cut -d'|' -f5)
-					nhinit=$(echo $resp | cut -d'|' -f6)
-					nhused=$(echo $resp | cut -d'|' -f7)
-					nhcommitted=$(echo $resp | cut -d'|' -f8)
-					nhmax=$(echo $resp | cut -d'|' -f9)
-					gc=$(echo $resp | cut -d'|' -f10)
-					nativemem=$(echo $resp | cut -d'|' -f11)
+					nonHeapInit=$(echo $resp | cut -d'|' -f6)
+					nonHeapUsed=$(echo $resp | cut -d'|' -f7)
+					nonHeapCommitted=$(echo $resp | cut -d'|' -f8)
+					nonHeapMax=$(echo $resp | cut -d'|' -f9)
+					gcType=$(echo $resp | cut -d'|' -f10)
+					nativeMemory=$(echo $resp | cut -d'|' -f11)
 				fi
 				if [ -z "$currentPort" ]; then
 					echo "$jattach $pid jcmd ManagementAgent.stop"
@@ -175,12 +173,13 @@ function run {
 						echo $resp
 					fi
 				fi
-				opts="$resp"
+				options="$resp"
 				echo "ERROR: can't enable JMX for pid=$pid"
 			fi
 		fi
 
-		curl -fsSL -d "callback=response&testid=$testid&host=$host&os=$os&node=$node&pid=$pid&mtotal=$mtotal&mused=$mused&mfree=$mfree&mshared=$mshared&mbuff=$mbuff&mavail=$mavail&swtotal=$swtotal&swused=$swused&swfree=$swfree&swshared=$swshared&swbuff=$swbuff&swavail=$swavail&java=$java&opts=$opts&gc=$gc&xmx=$xmx&committed=$committed&used=$used&xms=$xms&nhmax=$nhmax&nhcommitted=$nhcommitted&nhused=$nhused&nhinit=$nhinit&nativemem=$nativemem&flags=$flags&initheap=$initheap&maxheap=$maxheap&minheapdelta=$minheapdelta&maxnew=$maxnew&new=$new&old=$old&docker=$docker&dckrused=$dckrused&dckrlimit=$dckrlimit" -X POST "https://script.google.com/macros/s/AKfycbzs2J6KLEdAzxvi3vSnSipVG1EYGP5qaUvoRa_MAtv7LXPpgGU/exec"
+		curl -fsSL -d "callback=response&user=$user&testId=$testId&hostId=$hostId&os=$os&nodeType=$nodeType&pid=$pid&osMemTotal=$osMemTotal&osMemUsed=$osMemUsed&osMemFree=$osMemFree&osMemShared=$osMemShared&osMemBuffCache=$osMemBuffCache&osMemAvail=$osMemAvail&swapTotal=$swapTotal&swapUsed=$swapUsed&swapFree=$swapFree&javaVersion=$javaVersion&options=$options&gcType=$gcType&xmx=$xmx&heapCommitted=$heapCommitted&heapUsed=$heapUsed&xms=$xms&nonHeapMax=$nonHeapMax&nonHeapCommitted=$nonHeapCommitted&nonHeapUsed=$nonHeapUsed&nonHeapInit=$nonHeapInit&nativeMemory=$nativeMemory&jvmFlags=$jvmFlags&initHeap=$initHeap&maxHeap=$maxHeap&minHeapDelta=$minHeapDelta&maxNew=$maxNew&newSize=$newSize&oldSize=$oldSize&dockerVersion=$dockerVersion&dockerUsed=$dockerUsed&dockerLimit=$dockerLimit" -X POST "https://script.google.com/macros/s/AKfycbzs2J6KLEdAzxvi3vSnSipVG1EYGP5qaUvoRa_MAtv7LXPpgGU/exec"
+		echo ""
 	done
 	rm -rf $jar $jattach
 }
@@ -225,4 +224,4 @@ function toMB {
 	fi	
 }
 
-run $1
+run $1 $2	
