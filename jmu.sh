@@ -108,7 +108,7 @@ function run {
 				echo $resp
 				p=$port
 			else 
-				resul=0
+				result=0
 				echo "Connecting to running JMX at port $currentPort"
 				p=$currentPort
 			fi
