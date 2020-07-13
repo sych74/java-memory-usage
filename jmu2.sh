@@ -55,7 +55,7 @@ function run {
 	jar=/tmp/app.jar
 
 	for pid in $(pgrep -l java | awk '{print $1}'); do
-		echo "--> $pid"
+		echo -e "---\npid=$pid"
 		[ $debug -ne 0 ] && echo "$jattach $pid jcmd VM.version"
 		javaVersion=$($jattach $pid jcmd VM.version | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
 		result=$?
