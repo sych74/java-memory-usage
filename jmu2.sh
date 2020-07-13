@@ -12,19 +12,24 @@ function run {
 		testId="Test $(date)"
 	fi
 
-	echo "***************************************************"
+	debug=${3:-0}
+	if [ -z "$testId" ]; then
+		testId="Test $(date)"
+	fi
+
+	echo "***"
 	hostId=$(hostname)
 	echo $hostId
 	os=$(cat /etc/*-release)
-	echo $os
+	[ $debug -ne 0 ] && echo $os
 	nodeType=""
 	meta="/etc/jelastic/metainf.conf"
 	if [ -f $meta ]; then
 		nodeType=$(cat $meta | grep TYPE)
-		echo $nodeType
+		[ $debug -ne 0 ] && echo $nodeType
 	fi 
 	mem=$(free -m | grep -v +)
-	echo $mem
+	[ $debug -ne 0 ] && echo $mem
 
 	osMemTotal=$(echo $mem | cut -d' ' -f8)
 	osMemUsed=$(echo $mem | cut -d' ' -f9)
@@ -35,11 +40,13 @@ function run {
 	swapTotal=$(echo $mem | cut -d' ' -f15)
 	swapUsed=$(echo $mem | cut -d' ' -f16)
 	swapFree=$(echo $mem | cut -d' ' -f17)
-	dockerVersion=$(docker -v)
-    if [ $(which kubeadm) ]; then
-		$dockerVersion=$(echo -e "$dockerVersion\n$(kubeadm version | tr -d '&')")
-    fi
-    echo $dockerVersion
+	if [ $(command -v docker) ]; then
+		dockerVersion=$(docker -v)
+		if [ $(command -v kubeadm) ]; then
+			$dockerVersion=$(echo -e "$dockerVersion\n$(kubeadm version | tr -d '&')")
+		fi
+	    	[ $debug -ne 0 ] && echo $dockerVersion
+	fi
 	port=10239
 	curl -sLo /tmp/jattach https://github.com/apangin/jattach/releases/download/v1.5/jattach
 	chmod +x /tmp/jattach
@@ -48,8 +55,8 @@ function run {
 	jar=/tmp/app.jar
 
 	for pid in $(pgrep -l java | awk '{print $1}'); do
-		echo "-------------- $pid --------------"
-		echo "$jattach $pid jcmd VM.version"
+		echo "--> $pid"
+		[ $debug -ne 0 ] && echo "$jattach $pid jcmd VM.version"
 		javaVersion=$($jattach $pid jcmd VM.version | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
 		result=$?
 		if [ $result -ne 0 ]; then
@@ -57,10 +64,10 @@ function run {
 			result=$?
 		fi
 
-		if [ $(which docker) ]; then
-			echo "Collecting info about docker container limits..."
+		if [ $(command -v docker) ]; then
+			[ $debug -ne 0 ] && echo "Collecting info about docker container limits..."
 			ctid=$(getCtInfo $pid id)
-			echo "ctid=$ctid"
+			[ $debug -ne 0 ] && echo "ctid=$ctid"
 			st=$(docker stats $ctid --no-stream --format "{{.MemUsage}}")
 			dockerUsed=$(echo $st | cut -d'/' -f1 | tr -s " " | xargs)
 			dockerLimit=$(echo $st | cut -d'/' -f2 | tr -s " " | xargs)
@@ -69,14 +76,14 @@ function run {
 			fi
 		fi
 
-		echo $javaVersion
+		[ $debug -ne 0 ] && echo $javaVersion
 
 		if [[ "$javaVersion" == *"JDK 7."* || "$javaVersion" == *"1.7."* ]]; then
 			echo "ERROR: Java 7 is not supported"
 		else
-			echo "$jattach $pid jcmd VM.flags"
+			[ $debug -ne 0 ] && echo "$jattach $pid jcmd VM.flags"
 			jvmFlags=$($jattach $pid jcmd VM.flags | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
-			echo $jvmFlags
+			[ $debug -ne 0 ] && echo $jvmFlags
 
 			s=":InitialHeapSize="
 			initHeap=$(toMB $(echo ${jvmFlags#*$s} | cut -d' ' -f1))
@@ -100,31 +107,31 @@ function run {
 			fi			
 			if [ -z "$currentPort" ]; then
 				start="ManagementAgent.start jmxremote.port=$port jmxremote.rmi.port=$port jmxremote.ssl=false jmxremote.authenticate=false"
-				echo "$jattach $pid jcmd \"$start\""
+				[ $debug -ne 0 ] && echo "$jattach $pid jcmd \"$start\""
 				resp=$($jattach $pid jcmd "$start" 2>&1)
 				result=$?
-				echo $resp
+				[ $debug -ne 0 ] && echo $resp
 				p=$port
 			else 
 				result=0
-				echo "Connecting to running JMX at port $currentPort"
+				[ $debug -ne 0 ] && echo "Connecting to running JMX at port $currentPort"
 				p=$currentPort
 			fi
 			
 
 			if [ $result -eq 0 ]; then
-				echo "java -jar $jar -p=$p 2>&1"
+				[ $debug -ne 0 ] && echo "java -jar $jar -p=$p 2>&1"
 				resp=$(java -jar $jar -p=$p 2>&1)
 				result=$?
-				echo $resp
+				[ $debug -ne 0 ] && echo $resp
 
-				if [ $(which docker) ]; then
+				if [ $(command -v docker) ]; then
 					if [[ "$resp" == *"Failed to retrieve RMIServer stub"* ]]; then
 						ip=$(getCtInfo $pid)	
-						echo "java -jar $jar -h=$ip -p=$p"
+						[ $debug -ne 0 ] && echo "java -jar $jar -h=$ip -p=$p"
 						resp=$(java -jar $jar -h=$ip -p=$p)
 						result=$?
-						echo $resp
+						[ $debug -ne 0 ] && echo $resp
 					fi
 					#If previous attempts failed then execute java -jar app.jar inside docker cotainer 
 					if [ $result -ne 0 ]; then
@@ -132,7 +139,7 @@ function run {
 						resp=$(docker exec $ctid java -jar $jar -p=$p) 
 						result=$?
 						docker exec -u 0 $ctid rm -rf $jar 
-						echo $resp
+						[ $debug -ne 0 ] && echo $resp
 					fi
 				fi
 
@@ -150,18 +157,18 @@ function run {
 					nativeMemory=$(echo $resp | cut -d'|' -f11)
 				fi
 				if [ -z "$currentPort" ]; then
-					echo "$jattach $pid jcmd ManagementAgent.stop"
+					[ $debug -ne 0 ] && echo "$jattach $pid jcmd ManagementAgent.stop"
 					$jattach $pid jcmd ManagementAgent.stop
 				fi
 				echo "Done"
 			else
-				if [ $(which docker) ]; then
+				if [ $(command -v docker) ]; then
 					if [[ "$resp" == *"Failed to retrieve RMIServer stub"* ]]; then
 						ip=$(getCtInfo $pid)	
-						echo "java -jar $jar -h=$ip"
+						[ $debug -ne 0 ] && echo "java -jar $jar -h=$ip"
 						resp=$(java -jar $jar -h=$ip)
 						result=$?
-						echo $resp
+						[ $debug -ne 0 ] && echo $resp
 					fi
 					#If previous attempts failed then execute java -jar app.jar inside docker cotainer 
 					if [ $result -ne 0 ]; then
@@ -170,7 +177,7 @@ function run {
 						resp=$(docker exec $ctid java -jar $jar) 
 						result=$?
 						docker exec -u 0 $ctid rm -rf $jar 
-						echo $resp
+						[ $debug -ne 0 ] && echo $resp
 					fi
 				fi
 				options="$resp"
