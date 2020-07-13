@@ -99,7 +99,7 @@ function run {
 			oldSize=$(toMB $(echo ${jvmFlags#*$s} | cut -d' ' -f1))
 
 
-			currentPort=$($jattach $pid jcmd ManagementAgent.status | grep jmxremote.port | cut -d'=' -f2 | tr -s " " | xargs)
+			currentPort=$($jattach $pid jcmd ManagementAgent.status | grep -v "Connected to remote JVM" | grep -v "Response code = 0" | grep jmxremote.port | cut -d'=' -f2 | tr -s " " | xargs)
 			if [ -z "$currentPort" ]; then
 				s="jmxremote.port="
 				proc=$(ps ax | grep $pid | grep $s)
@@ -108,7 +108,7 @@ function run {
 			if [ -z "$currentPort" ]; then
 				start="ManagementAgent.start jmxremote.port=$port jmxremote.rmi.port=$port jmxremote.ssl=false jmxremote.authenticate=false"
 				[ $debug -ne 0 ] && echo "$jattach $pid jcmd \"$start\""
-				resp=$($jattach $pid jcmd "$start" 2>&1)
+				resp=$($jattach $pid jcmd "$start" 2>&1 | grep -v "Connected to remote JVM" | grep -v "Response code = 0")
 				result=$?
 				[ $debug -ne 0 ] && echo $resp
 				p=$port
@@ -158,7 +158,7 @@ function run {
 				fi
 				if [ -z "$currentPort" ]; then
 					[ $debug -ne 0 ] && echo "$jattach $pid jcmd ManagementAgent.stop"
-					$jattach $pid jcmd ManagementAgent.stop
+					$jattach $pid jcmd ManagementAgent.stop | grep -v "Connected to remote JVM" | grep -v "Response code = 0"
 				fi
 				echo "Done"
 			else
@@ -231,4 +231,4 @@ function toMB {
 	fi	
 }
 
-run $1 $2
+run $1 $2 $3
