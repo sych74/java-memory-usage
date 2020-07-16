@@ -13,9 +13,6 @@ function run {
 	fi
 
 	debug=${3:-0}
-	if [ -z "$testId" ]; then
-		testId="Test $(date)"
-	fi
 
 	echo "***"
 	hostId=$(hostname)
