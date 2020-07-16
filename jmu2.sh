@@ -12,7 +12,12 @@ function run {
 		testId="Test $(date)"
 	fi
 
-	debug=${3:-0}
+	debug=${3}
+	if [ "$debug" != "0" -a "$debug" != "false" ]; then
+		debug=1
+	else
+		debug=0
+	fi
 
 	echo "***"
 	hostId=$(hostname)
